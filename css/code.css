@@ -1,0 +1,15 @@
+.code {
+  background-color: whitesmoke;
+}
+
+code.shell pre::before {
+  content: '# ';
+  color: red;
+}
+code.shell pre.continue::before {
+  content: '> ';
+  color: gray;
+}
+code.shell pre.blank::before {
+  content: '  ';
+}

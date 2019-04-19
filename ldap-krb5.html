@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>LDAP and Kerberos</title>
+    <style>
+      span { font-weight: bold; }
+      code { background-color: gray; }
+      .shell pre::before {
+        content: "root# ";
+        color: red;
+      }
+      
+      #tabs.tabs {
+        position: relative;
+        height: 1100px;
+        display: flex;
+        margin: 1em auto 0;
+        width: 800px;
+        font-size: 1.1em;
+        font-family: monospace;
+      }
+      #tabs .tab label {
+        cursor: pointer;
+        background: #c69;
+        font-size: 1.2em;
+        border-radius: 5px 5px 0 0;
+        padding: .5em 1em;
+      }
+      #tabs .tab [type=radio] {
+        position: absolute;
+        clip: rect(0, 0, 0, 0);
+      }
+      #tabs .tab [type=radio]:focus + label {
+        outline: 2px dotted #000;
+      }
+      #tabs .tab [type=radio]:checked ~ label {
+        background: #c99;
+      }
+      #tabs .tab [type=radio]:checked ~ label ~ .content {
+        z-index: 1;
+      }
+      #tabs .content {
+        background: wheat;
+        border: 1px solid #c69;
+        border-radius: 0 5px 5px;
+        padding: .5em 2em;
+        position: absolute;
+        width: 100%;
+        top: 2em;
+        left: 0;
+        right: 0;
+        bottom: 0;
+      }
+      
+      input[type="radio"] {
+        position: absolute;
+        opacity: 0;
+      }
+      input[type="radio"]:focus + label {
+        color: black;
+        background-color: wheat;
+      }
+      
+      #accordion label.label-accordion {
+        position: relative;
+        display: block;
+        cursor: pointer;
+        background: #c69;
+        color: white;
+        padding: .5em;
+        border-bottom: 1px solid white;
+      }
+      
+      #accordion section {
+        height: 0;
+        transition: .3s all;
+        overflow: hidden;
+      }
+      
+      #toggle1:checked ~ #content1,
+      #toggle2:checked ~ #content2,
+      #toggle3:checked ~ #content3,
+      #toggle4:checked ~ #content4 {
+        height: 450px;
+      }
+      
+      #accordion p {
+        padding: 0 2em;
+      }
+      
+      #accordion .togglebox {
+        margin: 0 auto;
+        width: 50%;
+        border: 1px solid #c69;
+      }
+    </style>
+  </head>
+  <body>
+    <label for="in-fqdn">FQDN:</label>
+    <input  id="in-fqdn" placeholder="server.example.com" />
+    
+    <code class="shell">
+      <pre>emerge -u openldap[sasl,-minimal] openssh[ldap]</pre>
+      <pre>emerge -u mit-krb5</pre>
+      <pre>systemd-tmpfiles --create</pre>
+      <pre>cp /etc/openldap/DB_CONFIG.example /var/lib/openldap-data/DB_CONFIG</pre>
+    </code>
+    
+    <div id="tabs" class="tabs">
+      <div class="tab">
+        <input type="radio" name="tabgroup" id="tab-1" checked>
+        <label for="tab-1">slapd.conf</label>
+        <div class="content">
+          <code>
+            <pre>include /etc/openldap/schema/core.schema</pre>
+            <pre>include /etc/openldap/schema/cosine.schema</pre>
+            <pre>include /etc/openldap/schema/inetorgperson.schema</pre>
+            <pre>include /etc/openldap/schema/nis.schema</pre>
+            <pre>include /etc/openldap/schema/misc.schema</pre>
+            <pre>include /etc/openldap/schema/openssh-lpk.schema</pre>
+            <pre>&#13;</pre>
+            <pre>pidfile  /var/run/openldap/slapd.pid</pre>
+            <pre>argsfile /var/run/openldap/slapd.args</pre>
+            <pre>&#13;</pre>
+            <pre>## Access Controls</pre>
+            <pre>access to dn.base="" by * read</pre>
+            <pre>access to dn.base="cn=Subschema" by * read</pre>
+            <pre>access to *</pre>
+            <pre>  by self write</pre>
+            <pre>  by users read</pre>
+            <pre>  by anonymous read</pre>
+            <pre>&#13;</pre>
+            <pre>## Database definition</pre>
+            <pre>database hdb</pre>
+            <pre>suffix "<span class="suffix">dc=genfic,dc=org</span>"</pre>
+            <pre>checkpoint 32 30</pre>
+            <pre>&#13;</pre>
+            <pre>rootdn "cn=Manager,<span class="suffix">dc=genfic,dc=org</span>"</pre>
+            <pre>## rootpwd generated with slappasswd command ##</pre>
+            <pre>#SLAPPASSWD tee -a slapd.conf <<<"rootpw $(slappasswd)"</pre>
+            <pre>directory /var/lib/openldap-data</pre>
+            <pre>index objectClass eq</pre>
+            <pre>&#13;</pre>
+            <pre>database config</pre>
+            <pre>access to *</pre>
+            <pre>  by dn.exact="gidNumber=0+uidNumber=0,cn=peercred,cn=external,cn=auth" manage</pre>
+            <pre>  by * none</pre>
+            <pre>&#13;</pre>
+          </code>
+        </div>
+      </div>
+      <div class="tab">
+        <input type="radio" name="tabgroup" id="tab-2">
+        <label for="tab-2">krb5.conf</label>
+        <div class="content">
+          <code>
+          <pre>[libdefaults]</pre>
+          <pre>  default_realm = <span class="uc-fqdn">auth.example.com</span></pre>
+          <pre>&#13;</pre>
+          <pre>[realms]</pre>
+          <pre>  <span class="uc-fqdn">auth.example.com</span> = {</pre>
+          <pre>    kdc = <span class="fqdn">auth.example.com</span></pre>
+          <pre>    admin_server = <span class="fqdn">auth.example.com</span></pre>
+          <pre>  }</pre>
+          <pre>&#13;</pre>
+          <pre>[domain_realm]</pre>
+          <pre>  <span class="domain">example.com</span> = <span class="uc-fqdn">auth.example.com</span></pre>
+          <pre>  .<span class="domain">example.com</span> = <span class="uc-fqdn">auth.example.com</span></pre>
+          <pre></pre>
+          <pre></pre>
+          <pre></pre>
+          </code>
+        </div>
+      </div>
+      
+      <div class="tab">
+        <input type="radio" name="tabgroup" id="tab-3">
+        <label for="tab-3">ldap.conf</label>
+        <div class="content">
+          <pre>base <span class="suffix">dc=genfic,dc=org</span></pre>
+          <pre>uri ldap://<span class="fqdn">auth.example.com</span></pre>
+          <pre>&#13;</pre>
+          <pre># If local ldap server:</pre>
+          <pre>#uri ldapi:///</pre>
+          <pre>#sasl_mech external</pre>
+          <pre>&#13;</pre>
+          <pre># This file should also be installed at /etc/nslcd.conf</pre>
+          <pre>base group ou=groups,<span class="suffix">dc=genfic,dc=org</span></pre>
+          <pre>base passwd ou=users,<span class="suffix">dc=genfic,dc=org</span></pre>
+        </div>
+      </div>
+      
+      <div class="tab">
+        <input type="radio" name="tabgroup" id="tab-4">
+        <label for="tab-4">nsswitch.conf</label>
+        <div class="content">
+          <pre>passwd:      files mymachines systemd ldap</pre>
+          <pre>shadow:      files</pre>
+          <pre>group:       files mymachines systemd ldap</pre>
+          <pre>hosts:       files mymachines resolve [!UNAVAIL=return] dns myhostname</pre>
+          <pre>networks:    files dns</pre>
+          <pre>services:    db files</pre>
+          <pre>protocols:   db files</pre>
+          <pre>rpc:         db files</pre>
+          <pre>ethers:      db files</pre>
+          <pre>netmasks:    files</pre>
+          <pre>netgroup:    files</pre>
+          <pre>bootparams:  files</pre>
+          <pre>automount:   files</pre>
+          <pre>aliases:     files</pre>
+        </div>
+      </div>
+      
+      <div class="tab">
+        <input type="radio" name="tabgroup" id="tab-5">
+        <label for="tab-5">system-auth</label>
+        <div class="content">
+          <pre>auth               required        pam_env.so</pre>
+          <pre>-auth              sufficient      pam_krb5.so use_first_pass</pre>
+          <pre>auth               sufficient      pam_unix.so try_first_pass likeauth nullok</pre>
+          <pre>auth               required        pam_deny.so</pre>
+          <pre>account            required        pam_unix.so</pre>
+          <pre>account            optional        pam_permit.so</pre>
+          <pre>password           required        pam_cracklib.so difok=2 minlen=8 dcredit=2 ocredit=2 retry=3 </pre>
+          <pre>password           required        pam_unix.so try_first_pass use_authtok nullok sha512 shadow </pre>
+          <pre>password           optional        pam_permit.so</pre>
+          <pre>session            optional        pam_mkhomedir.so</pre>
+          <pre>session            required        pam_limits.so </pre>
+          <pre>session            required        pam_env.so </pre>
+          <pre>session            required        pam_unix.so </pre>
+          <pre>session            optional        pam_permit.so</pre>
+          <pre>-session           optional        pam_systemd.so</pre>
+        </div>
+      </div>
+      
+    </div>
+    <code class="shell">
+      <pre>sed -i -e "/#SLAPPASSWD/s|^.*$|rootpw $(slappasswd)|" /etc/openldap/slapd.conf</pre>
+      <pre>slaptest || true</pre>
+      <pre>chown -R ldap: /var/lib/openldap-data</pre>
+      <pre>mkdir -p /etc/openldap/slapd.d</pre>
+      <pre>slaptest -f /etc/openldap/slapd.conf -F /etc/openldap/slapd.d</pre>
+      <pre>chown -R ldap: /etc/openldap/slapd.d</pre>
+      <pre>systemctl start slapd</pre>
+      <pre>echo '*/admin@<span class="uc-fqdn">auth.example.com</span> *'>/var/lib/krb5kdc/kadm5.acl</pre>
+      <pre>kdb5_util create -r <span class="uc-fqdn">auth.example.com</span> -s</pre>
+      <pre>kadmin.local add_policy -maxlife "10 years" default</pre>
+      <pre>kadmin.local ktadd kadmin/admin kadmin/changepw</pre>
+      <pre>kadmin.local add_principal -randkey host/$(hostname -f)</pre>
+      <pre>kadmin.local ktadd host/$(hostname -f)</pre>
+      <pre>kadmin.local add_principal <span class="user">adam</span>/admin</pre>
+      <pre>kadmin.local add_principal <span class="user">adam</span></pre>
+      <pre>systemd-run -r krb5kdc</pre>
+      <pre>systemd-run -r kadmind</pre>
+    </code>
+    <div id="accordion">
+      <div class="togglebox">
+        <input id="toggle1" type="radio" name="toggle" />
+        <label class="label-accordion" for="toggle1">Create top level object</label>
+        <section id="content1">
+          <code>
+            <pre>dn: <span class="suffix">dc=genfic,dc=org</span></pre>
+            <pre>objectClass: top</pre>
+            <pre>objectClass: dcObject</pre>
+            <pre>objectClass: organization</pre>
+            <pre>o: <span class="second">genfic</span></pre>
+            <pre>dc: <span class="second">genfic</span></pre>
+          </code>
+        </section>
+        
+        <input id="toggle2" type="radio" name="toggle" />
+        <label class="label-accordion" for="toggle2">Create an Organizational Unit</label>
+        <section id="content2">
+          <label for="in-orgunit">Organizational Unit name:</label>
+          <input  id="in-orgunit" placeholder="users" />
+          <code>
+            <pre>dn: ou=<span class="ou">users</span>,<span class="suffix">dc=genfic,dc=org</span></pre>
+            <pre>objectClass: organizationalUnit</pre>
+            <pre>ou: <span class="ou">users</span></pre>
+            <pre>description: <span class="ou">users</span> org unit</pre>
+            <pre></pre>
+          </code>
+        </section>
+        
+        <input id="toggle3" type="radio" name="toggle" />
+        <label class="label-accordion" for="toggle3">Create a user</label>
+        <section id="content3">
+          <label for="in-user">Organizational Unit name:</label>
+          <input  id="in-user" placeholder="adam" />
+          <code>
+            <pre>dn: uid=<span class="user">adam</span>,ou=users,<span class="suffix">dc=genfic,dc=org</span></pre>
+            <pre>objectClass: account</pre>
+            <pre>objectClass: posixAccount</pre>
+            <pre>cn: <span class="user">adam</span></pre>
+            <pre>uid: <span class="user">adam</span></pre>
+            <pre>homeDirectory: /home/<span class="user">adam</span></pre>                                                                                                         
+            <pre>loginShell: /bin/bash</pre>
+            <pre>gecos: <span class="user">adam</span></pre>
+            <pre>uidNumber: 1000</pre>
+            <pre>gidNumber: 1000</pre>
+          </code>
+        </section>
+        
+        <input id="toggle4" type="radio" name="toggle" />
+        <label class="label-accordion" for="toggle4">Create a group</label>
+        <section id="content4">
+          <label for="in-group">Organizational Unit name:</label>
+          <input  id="in-group" placeholder="users" />
+          <code>
+            <pre>dn: cn=<span class="group">users</span>,ou=groups,<span class="suffix">dc=genfic,dc=org</span></pre>
+            <pre>objectClass: posixGroup</pre>
+            <pre>gidNumber: 1000</pre>
+          </code>
+        </section>
+      </div>
+    </div>
+    <h2>Client-side</h2>
+    <code class="shell">
+      <pre>emerge -u nss-pam-ldapd pam_krb5 openldap[minimal]</pre>
+    </code>
+  <script>
+    var x500split = function(text) {
+      return "dc=" + text.split(".").slice(1).join(",dc=")
+    };
+    var domainsplit = function(text) {
+      return text.split(".").slice(1).join(".")
+    };
+    var sld = function(text) {
+      var domsplit = text.split(".");
+      return domsplit[domsplit.length-2];
+    };
+    var setFQDN = function(fqdn) {
+      document.querySelectorAll('.fqdn').forEach(function(span){
+        span.textContent = fqdn;
+      });
+      document.querySelectorAll('.uc-fqdn').forEach(function(span){
+        span.textContent = fqdn.toUpperCase();
+      });
+      document.querySelectorAll('.suffix').forEach(function(span){
+        span.textContent = x500split(fqdn);
+      });
+      document.querySelectorAll('.domain').forEach(function(span){
+        span.textContent = domainsplit(fqdn);
+      });
+      document.querySelectorAll('.second').forEach(function(span){
+        span.textContent = sld(fqdn);
+      });
+    };
+    document.onload = (function() {
+      setFQDN(window.location.hash.slice(1) || "server.example.com");
+      document.querySelector("#in-fqdn").value = window.location.hash.slice(1);
+      document.getElementById("in-fqdn").addEventListener("input", function(e) {
+        e.preventDefault();
+        window.location.hash = e.target.value;
+        setFQDN(e.target.value)
+      });
+      document.getElementById("in-orgunit").addEventListener("input", function(e) {
+        e.preventDefault();
+        document.querySelectorAll('.ou').forEach(function(span){
+          span.textContent = e.target.value;
+        });
+      });
+      document.getElementById("in-user").addEventListener("input", function(e) {
+        e.preventDefault();
+        document.querySelectorAll('.user').forEach(function(span){
+          span.textContent = e.target.value;
+        });
+      });
+      document.getElementById("in-group").addEventListener("input", function(e) {
+        e.preventDefault();
+        document.querySelectorAll('.group').forEach(function(span){
+          span.textContent = e.target.value;
+        });
+      });
+    })();
+  </script>
+  </body>
+</html>

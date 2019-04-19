@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>PPP on AAISP</title>
+  </head>
+  <style>
+    .tabs {
+      position: relative;
+      display: flex;
+      margin: 1em auto 0;
+      width: 550px;
+      font-size: 1.1em;
+      font-family: monospace;
+    }
+    .tab label {
+      cursor: pointer;
+      background: #c69;
+      font-size: 1.2em;
+      border-radius: 5px 5px 0 0;
+      padding: .5em 1em;
+    }
+    .tab [type=radio] {
+      position: absolute;
+      clip: rect(0, 0, 0, 0);
+    }
+    .tab [type=radio]:focus + label {
+      outline: 2px dotted #000;
+    }
+    .tab [type=radio]:checked ~ label {
+      background: #c99;
+    }
+    .tab [type=radio]:checked ~ label ~ .content {
+      z-index: 1;
+    }
+    .content {
+      background: wheat;
+      border: 1px solid #c69;
+      border-radius: 0 5px 5px;
+      padding: .5em 2em;
+      position: absolute;
+      width: 100%;
+      top: 2em;
+      left: 0;
+      right: 0;
+      bottom: 0;
+    }
+    span,label {
+      font-weight: bold;
+    }
+    .shell pre::before {
+      color: red;
+      content: "root# ";
+    }
+  </style>
+<body>
+  <p>
+    AAISP as an ISP provides a working PPP router for basic home networks, but
+    what if you need something more customised?
+  </p>
+  <div>
+    <label for="in-wan">WAN interface:</label>
+    <input id="in-wan" placeholder="eth0" />
+    <label for="in-lan">LAN interface:</label>
+    <input id="in-lan" placeholder="eth1" />
+    <br />
+    <label for="in-login">PPP username:</label>
+    <input id="in-login" placeholder="aa000@a.1" />
+    <label for="in-password">PPP password:</label>
+    <input id="in-password" placeholder="pa$$w0rd" type="password" />
+  </div>
+  <div>
+    <h3>(ZyXEL) PPP bridge</h3>
+    <p>If you don't have an ADSL (RJ11) to Ethernet (RJ45) converter, you should put the ZyXEL (or other router) into bridge mode.</p>
+    <ol>
+      <li>Export current configuration</li>
+      <li>Disable Wireless AP (use ethernet)</li>
+      <li>Disable IPv6 RAs<sup>Home Networking</sup></li>
+      <li>Switch Broadband to Bridge mode</li>
+    </ol>
+  </div>
+  
+  <div>
+    <h3>PPPoE</h3>
+    <code class="shell">
+      <pre>emerge ppp rp-pppoe</pre>
+    </code>
+    <div class="tabs" style="height: 730px">
+     <div class="tab">
+         <input type="radio" name="tabgroup" id="tab-1" checked>
+         <label for="tab-1">Userspace</label>
+         <div class="content pppoe">
+           <code>
+             <pre># /etc/ppp/peers/aaisp</pre>
+             <pre>user <span class="login">aa000@a.1</span></pre>
+             <pre>pty "/usr/sbin/pppoe -I <span class="wan-if">eth0</span> -T 10 -m 1432"</pre>
+             <pre>&#13;</pre>
+           </code>
+         </div> 
+     </div>
+      
+     <div class="tab">
+         <input type="radio" name="tabgroup" id="tab-2">
+         <label for="tab-2">rp-pppoe</label>
+         <div class="content pppoe">
+           <code>
+             <pre># /etc/ppp/peers/aaisp</pre>
+             <pre>user <span class="login">aa000@a.1</span></pre>
+             <pre>plugin rp-pppoe.so</pre>
+             <pre><span class="wan-if">eth0</span></pre>
+           </code>
+         </div> 
+     </div>
+     <div class="tab">
+         <input type="radio" name="tabgroup" id="tab-3">
+         <label for="tab-3">chap-secrets</label>
+         <div class="content">
+           <code>
+             <pre># /etc/ppp/chap-secrets</pre>
+             <pre><span class="login">aa000@a.1</span> * <span class="password">pa$$w0rd</span></pre>
+           </code>
+         </div> 
+     </div>
+    </div>
+    <code class="shell">
+      <pre>timeout 1m pppoe -A -I <span class="wan-if">eth0</span></pre>
+      <pre>pon aaisp</pre>
+    </code>
+    <template id="common-ppp">
+      <pre>&#13;</pre>
+      <pre># The following settings are the same in rp-pppoe or userspace</pre>
+      <pre>noipdefault</pre>
+      <pre>defaultroute</pre>
+      <pre>usepeerdns</pre>
+      <pre>hide-password</pre>
+      <pre>lcp-echo-interval 1</pre>
+      <pre>lcp-echo-failure 10</pre>
+      <pre>connect /bin/true</pre>
+      <pre>noauth</pre>
+      <pre>persist</pre>
+      <pre>maxfail 0</pre>
+      <pre>#holdoff 120</pre>
+      <pre>mtu 1492</pre>
+      <pre>noaccomp</pre>
+      <pre>default-asyncmap</pre>
+      <pre>+ipv6</pre>
+      <pre>ipv6cp-use-ipaddr</pre>
+    </template>
+  </div>
+  
+  <div>
+    <h3>Internal DHCP</h3>
+    <code class="shell">
+      <pre>emerge dnsmasq</pre>
+    </code>
+    <code>
+      
+    </code>
+    <div class="tabs" style="height: 300px">
+      
+      <div class="tab">
+        <input type="radio" name="tabgroup" id="tab-4">
+        <label for="tab-4">dnsmasq.conf</label>
+        <div class="content">
+          <code>
+            <pre>dhcp-range=172.16.0.2,172.31.255.254,12h</pre>
+            <pre>dhcp-range=::,constructor:<span class="lan-if">eth1</span>,ra-names,infinite</pre>
+            <pre>interface=<span class="lan-if">eth1</span></pre>
+            <pre>resolv-file=/etc/ppp/resolv.conf</pre>
+          </code>
+        </div>
+      </div>
+      
+      <div class="tab">
+        <input type="radio" name="tabgroup" id="tab-5">
+        <label for="tab-5"><span class="lan-if">eth1</span>.network</label>
+        <div class="content">
+          <code>
+            <pre>[Match]</pre>
+            <pre>Name=<span class="lan-if">eth1</span></pre>
+            <pre>&#13;</pre>
+            <pre>[Network]</pre>
+            <pre>Address=172.16.0.1/12</pre>
+            <pre>Address=2001:db8::/64</pre>
+          </code>
+        </div>  
+      </div>
+      
+      
+  </div>
+  
+  <script>
+    document.onload = (function(){
+      document.querySelectorAll('.pppoe code').forEach(function(tab){ tab.appendChild(document.importNode(document.querySelector('#common-ppp').content, true))})
+      document.getElementById("in-wan").addEventListener("input", function(e) {
+          e.preventDefault();
+          document.querySelectorAll(".wan-if").forEach(function(span) {
+            span.textContent = e.target.value;
+          })
+      });
+      document.getElementById("in-lan").addEventListener("input", function(e) {
+          e.preventDefault();
+          document.querySelectorAll(".lan-if").forEach(function(span) {
+            span.textContent = e.target.value;
+          })
+      });
+      document.getElementById("in-login").addEventListener("input", function(e) {
+          e.preventDefault();
+          document.querySelectorAll(".login").forEach(function(span) {
+            span.textContent = e.target.value;
+          })
+      });
+      document.getElementById("in-password").addEventListener("input", function(e) {
+          e.preventDefault();
+          document.querySelectorAll(".password").forEach(function(span) {
+            span.textContent = e.target.value;
+          })
+      });
+    })();
+  </script>
+</body>
+</html>

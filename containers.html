@@ -1,0 +1,118 @@
+	<!DOCTYPE html>
+<html>
+  <head>
+    <title>Gentoo Containers</title>
+    <link rel="stylesheet" href="css/code.css" />
+  </head>
+  <body>
+    <select id="mirror">
+      <option>distfiles.gentoo.org/releases</option>
+      <option>builds.0xdc.io</option>
+    </select>
+    <select id="arch">
+      <option>amd64</option>
+      <option>armv7a</option>
+    </select>
+    <select id="release"></select>
+    <input id="stage" value="stage3" />
+
+    <div class="code">
+      <code class="shell">
+        <pre>cd /var/lib/machines</pre>
+        <pre>getpath=$(wget -q -O- <a href="http://distfiles.gentoo.org/releases/amd64/autobuilds/" target="_blank">http://distfiles.gentoo.org/releases/amd64/autobuilds/</a>latest-<span class="stage">stage3</span>-<span class="arch">amd64</span>-<span class="release">systemd</span>.txt | awk '!/^#/||NR==3{print$1}')</pre>
+        <pre>basepath=$(basename $getpath)</pre>
+      	<pre>test -f $basepath || wget -c <a href="http://distfiles.gentoo.org/releases/amd64/autobuilds/" target="_blank">http://distfiles.gentoo.org/releases/amd64/autobuilds/</a>$getpath</pre>
+      	<pre>sha1=$(sha1sum $basepath | cut -d' ' -f1)</pre>
+      	<pre>if btrfs subvolume create .$sha1 || mkdir .$sha1; then</pre>
+      	<pre class="continue">  tar xpkf $basepath -C .$sha1</pre>
+      	<pre class="continue">fi</pre>
+      	<pre>rm -f <span class="release">systemd</span>-<span class="stage">stage3</span></pre>
+      	<pre>ln -s .$sha1 <span class="release">systemd</span>-<span class="stage">stage3</span></pre>
+      	<pre>tee /etc/systemd/nspawn/<span class="release">systemd</span>-<span class="stage">stage3</span>.nspawn &lt;&lt;EOF</pre>
+      	<pre class="blank">[Files]</pre>
+      	<pre class="blank">BindReadOnly=/usr/portage</pre>
+      	<pre class="blank">[Network]</pre>
+      	<pre class="blank">MACVLAN=eth0</pre>
+      	<pre class="blank">EOF</pre>
+      	<pre>tee .$sha1/etc/portage/make.conf &lt;&lt;'EOF'</pre>
+      	<pre class="blank">source /etc/portage/make.conf.catalyst</pre>
+      	<pre class="blank">FEATURES="$FEATURES -news"</pre>
+      	<pre class="blank">FEATURES="$FEATURES fail-clean"</pre>
+      	<pre class="blank">EMERGE_DEFAULT_OPTS="--quiet-build"</pre>
+      	<pre class="blank">DISTDIR="/var/lib/portage/distfiles"</pre>
+      	<pre class="blank">PORTAGE_RO_DISTDIRS="${PORTDIR}/distfiles"</pre>
+      	<pre class="blank">EOF</pre>
+      	<pre>machinectl read-only .$sha1</pre>
+      	<pre>&nbsp;</pre>
+  	  </code>
+	  </div>
+
+  <script>
+    function amd64_arch() {
+      select = document.querySelector("#release");
+      select.innerHTML = "";
+      
+      releases = ["default", "systemd", "sso", "plasma", "plasma-sso"];
+      for (i in releases) {
+        r = document.createElement("option");
+        r.text = releases[i];
+        select.appendChild(r);
+      }
+    }
+    function armv7a_arch() {
+      select = document.querySelector("#release");
+      select.innerHTML = "";
+      
+      releases = ["hardfp"];
+      for (i in releases) {
+        r = document.createElement("option");
+        r.text = releases[i];
+        select.appendChild(r);
+      }
+    }
+    function arch_update(e) {
+      arch = e.target.value;
+      if (arch == "amd64") {
+        amd64_arch()
+      } else if (arch == "armv7a") {
+        armv7a_arch()
+      }
+    }
+    function mirror_update(e) {
+      anchors = document.querySelectorAll('a');
+      
+      mirror = document.querySelector('#mirror').value;
+      arch = document.querySelector('#arch').value;
+      release = document.querySelector('#release').value;
+      stage = document.querySelector('#stage').value;
+      
+      if (mirror.includes("distfiles")) {
+        mirrorjoin = [ "http:", "", mirror, arch, "autobuilds", "" ]
+      } else {
+        mirrorjoin = [ "http:", "", mirror, arch, release, "" ]
+      };
+      
+      [...anchors].forEach(anchor => anchor.href = mirrorjoin.join("/"));
+      [...anchors].forEach(anchor => anchor.innerText = mirrorjoin.join("/"));
+      
+      srelease = document.querySelectorAll('.release');
+      sstage = document.querySelectorAll('.stage');
+      sarch  = document.querySelectorAll('.arch' );
+      
+      [...srelease].forEach(box => box.innerText = release);
+      [...sstage].forEach(box => box.innerText = stage);
+      [...sarch].forEach(box => box.innerText = arch);
+    }
+    archselect = document.querySelector("#arch");
+    archselect.addEventListener("change", arch_update);
+
+    document.querySelector("input").addEventListener("input", mirror_update);
+    
+    selects = document.querySelectorAll("select");
+    [...selects].forEach(box => box.addEventListener("change", mirror_update));
+
+    document.addEventListener("DOMContentLoaded", amd64_arch);
+    
+  </script>
+  </body>
+</html>
