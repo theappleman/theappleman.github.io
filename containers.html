@@ -30,17 +30,18 @@
                 <pre>ln -s .$sha1 <span class="release">systemd</span>-<span class="stage">stage3</span></pre>
                 <pre>tee /etc/systemd/nspawn/<span class="release">systemd</span>-<span class="stage">stage3</span>.nspawn &lt;&lt;EOF</pre>
                 <pre class="blank">[Files]</pre>
-                <pre class="blank">BindReadOnly=/usr/portage</pre>
+                <pre class="blank">BindReadOnly=/var/db/repos/gentoo</pre>
+                <pre class="blank">BindReadOnly=/var/cache/binpkgs</pre>
+                <pre class="blank">BindReadOnly=/var/cache/distfiles</pre>
                 <pre class="blank">[Network]</pre>
                 <pre class="blank">MACVLAN=eth0</pre>
                 <pre class="blank">EOF</pre>
-                <pre>tee .$sha1/etc/portage/make.conf &lt;&lt;'EOF'</pre>
-                <pre class="blank">source /etc/portage/make.conf.catalyst</pre>
+                <pre>tee -a .$sha1/etc/portage/make.conf &lt;&lt;'EOF'</pre>
                 <pre class="blank">FEATURES="$FEATURES -news"</pre>
                 <pre class="blank">FEATURES="$FEATURES fail-clean"</pre>
-                <pre class="blank">EMERGE_DEFAULT_OPTS="--quiet-build"</pre>
+                <pre class="blank">EMERGE_DEFAULT_OPTS="--quiet-build --usepkg=y"</pre>
                 <pre class="blank">DISTDIR="/var/lib/portage/distfiles"</pre>
-                <pre class="blank">PORTAGE_RO_DISTDIRS="${PORTDIR}/distfiles"</pre>
+                <pre class="blank">PORTAGE_RO_DISTDIRS="/var/cache/distfiles"</pre>
                 <pre class="blank">EOF</pre>
                 <pre>machinectl read-only .$sha1</pre>
                 <pre>&nbsp;</pre>
