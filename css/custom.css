@@ -48,6 +48,10 @@ h7 {
     display: none;
 }
 
+video {
+    max-width: 100%;
+}
+
 @media(min-width: 550px) {
     h7 {
         display: block;
