@@ -2,7 +2,7 @@ var livestream = function(uid) {
 	'use strict';
 
 	var header = document.querySelector("header");
-	fetch("https://0xdc.io/hls/" + uid + "/index.m3u8")
+	fetch("https://0xdc.io/hls/" + uid + ".m3u8")
 	.then(response => {
 		if (!response.ok) {
 			throw new Error("http response not okay. not doing anything");
